@@ -1,0 +1,164 @@
+import java.util.Random;
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        String castle = "\uD83C\uDFF0";
+        int sizeBoard = 5;
+        Random r = new Random();
+        Scanner sc = new Scanner(System.in);
+
+        Person person = new Person(sizeBoard);
+        int step = 0;
+
+        // Инициализация пустой доски
+        String[][] board = new String[sizeBoard][sizeBoard];
+        for (int y = 0; y < sizeBoard; y++) {
+            for (int x = 0; x < sizeBoard; x++) {
+                board[y][x] = "  ";
+            }
+        }
+
+        // Расстановка монстров
+        int countMonster = sizeBoard * sizeBoard / 3; // Оптимальное кол-во
+        Monster[] arrMonster = new Monster[countMonster];
+        int count = 0;
+        while (count < countMonster) {
+            Monster test = (r.nextBoolean()) ? new Monster(sizeBoard) : new BigMonster(sizeBoard);
+            // Проверка, чтобы не ставить монстра на место игрока или другого монстра
+            if (board[test.getY()][test.getX()].equals("  ") && 
+                !(test.getX() == person.getX()-1 && test.getY() == person.getY()-1)) {
+                board[test.getY()][test.getX()] = test.getImage();
+                arrMonster[count] = test;
+                count++;
+            }
+        }
+
+        // Расстановка замка (цель игры)
+        int castleX = r.nextInt(sizeBoard);
+        int castleY = 0;
+        board[castleY][castleX] = castle;
+
+        System.out.println("Привет! Ты готов начать играть? (ДА/НЕТ)");
+        String answer = sc.nextLine().toUpperCase();
+
+        if (answer.equals("ДА")) {
+            System.out.println("Выбери сложность игры (от 1 до 5):");
+            int difficultGame = sc.nextInt();
+
+            while (person.getLive() > 0) {
+                // Ставим персонажа на доску перед отрисовкой
+                board[person.getY() - 1][person.getX() - 1] = person.getImage();
+                outputBoard(board, person.getLive());
+
+                System.out.println("Введите координаты X и Y (1-" + sizeBoard + "):");
+                if (!sc.hasNextInt()) break; 
+                int x = sc.nextInt();
+                int y = sc.nextInt();
+
+                if (person.moveCorrect(x, y)) {
+                    String nextCell = board[y - 1][x - 1];
+
+                    if (nextCell.equals("  ") || nextCell.equals(person.getImage())) {
+                        board[person.getY() - 1][person.getX() - 1] = "  "; // Очищаем старую позицию
+                        person.move(x, y);
+                        step++;
+                    } else if (nextCell.equals(castle)) {
+                        System.out.println("Ура! Вы достигли замка за " + step + " шагов!");
+                        break;
+                    } else {
+                        // Клетка занята монстром
+                        for (Monster monster : arrMonster) {
+                            if (monster != null && monster.getX() == x - 1 && monster.getY() == y - 1) {
+                                if (monster.taskMonster(difficultGame)) {
+                                    System.out.println("Вы победили монстра!");
+                                    board[person.getY() - 1][person.getX() - 1] = "  ";
+                                    person.move(x, y);
+                                } else {
+                                    System.out.println("Монстр оказался сильнее! -1 жизнь");
+                                    person.downLive();
+                                }
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    System.out.println("Некорректный ход! Можно ходить только на 1 клетку.");
+                }
+            }
+            if (person.getLive() <= 0) System.out.println("Игра окончена! Вы погибли.");
+            
+        } else {
+            System.out.println("Жаль, приходи еще!");
+        }
+    }
+
+    static void outputBoard(String[][] board, int live) {
+        String wall = "+ —— + —— + —— + —— + —— +";
+        for (String[] row : board) {
+            System.out.println(wall);
+            for (String col : row) {
+                System.out.print("| " + col + " ");
+            }
+            System.out.println("|");
+        }
+        System.out.println(wall);
+        System.out.println("Количество жизней: " + live);
+    }
+}
+
+// --- ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ (нужно реализовать) ---
+
+class Person {
+    private int x, y, live;
+    private String image = "\uD83E\uDDDD"; // Эмодзи эльфа
+
+    public Person(int size) {
+        this.x = 1; this.y = size; this.live = 3;
+    }
+    public int getX() { return x; }
+    public int getY() { return y; }
+    public int getLive() { return live; }
+    public String getImage() { return image; }
+    public void move(int x, int y) { this.x = x; this.y = y; }
+    public void downLive() { this.live--; }
+
+    public boolean moveCorrect(int nx, int ny) {
+        if (nx < 1 || nx > 5 || ny < 1 || ny > 5) return false;
+        return Math.abs(nx - x) + Math.abs(ny - y) == 1;
+    }
+}
+
+class Monster {
+    protected int x, y;
+    protected String image = "\uD83D\uDC7B"; // Привидение
+
+    public Monster(int size) {
+        Random r = new Random();
+        this.x = r.nextInt(size);
+        this.y = r.nextInt(size);
+    }
+    public int getX() { return x; }
+    public int getY() { return y; }
+    public String getImage() { return image; }
+
+    public boolean taskMonster(int diff) {
+        // Простая математическая задача для победы
+        int a = new Random().nextInt(10 * diff);
+        int b = new Random().nextInt(10 * diff);
+        System.out.print("Реши пример: " + a + " + " + b + " = ");
+        return new Scanner(System.in).nextInt() == (a + b);
+    }
+}
+
+class BigMonster extends Monster {
+    public BigMonster(int size) {
+        super(size);
+        this.image = "\uD83D\uDC79"; // Огр
+    }
+    @Override
+    public boolean taskMonster(int diff) {
+        System.out.println("БОЛЬШОЙ МОНСТР!");
+        return super.taskMonster(diff + 2);
+    }
+}
